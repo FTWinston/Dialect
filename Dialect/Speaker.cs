@@ -60,13 +60,18 @@ namespace Dialect
             currentJobWordsAwaitingPronunciation.Clear();
             currentJobPronunciations.Clear();
 
+            var wordsToLookup = new SortedSet<string>();
+
             foreach (var word in words)
                 if (word != null)
                 {
                     currentJobWordOrder.Add(word);
 
                     if (!currentJobWordsAwaitingPronunciation.Contains(word))
+                    {
                         currentJobWordsAwaitingPronunciation.Add(word);
+                        wordsToLookup.Add(word);
+                    }
                 }
 
             if (currentJobWordOrder.Count == 0)
@@ -76,7 +81,7 @@ namespace Dialect
                 return;
             }
 
-            foreach (var word in currentJobWordsAwaitingPronunciation)
+            foreach (var word in wordsToLookup) // use a separate set here to avoid iterating currentJobWordsAwaitingPronunciation while it (might) be modifed by a synchronous Lookup
                 Pronunciation.Lookup(word);
         }
 

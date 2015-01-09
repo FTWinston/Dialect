@@ -39,6 +39,6 @@ namespace Dialect.Sources
             client.DownloadStringAsync(new Uri(string.Format(UrlFormat, word)));
         }
 
-        private static readonly char[] trimChars = { ' ', '/', '(', ')' }; // collins has the pronunciation inside brackets, but is it always safe to strip these?
+        private static readonly char[] trimChars = { ' ', '/', '(', ')', '\n', '\r' }; // collins has the pronunciation inside brackets, but is it always safe to strip these? Oxford has brackets around phonemes sometimes.
     }
 }
