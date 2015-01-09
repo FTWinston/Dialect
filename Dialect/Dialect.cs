@@ -10,7 +10,7 @@ namespace Dialect
     {
         public string PerformSubstitution(string ipa)
         {
-            throw new NotImplementedException();
+            return ipa;
         }
     }
 }

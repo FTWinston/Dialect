@@ -57,7 +57,7 @@ namespace Dialect
             {
                 if (e.Pronounciation == null) // have exhausted all of our sources, need to say SOMETHING
                 {
-                    e.Pronounciation = "something";
+                    e.Pronounciation = "ˈsʌm.θɪŋ";
 
                     Console.WriteLine("{0}: No pronounciation found!", e.Spelling);
                 }

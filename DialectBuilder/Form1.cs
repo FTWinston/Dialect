@@ -18,14 +18,14 @@ namespace DialectBuilder
         {
             InitializeComponent();
 
-            pronounciation = PronounciationManager.CreateDefault();
-            pronounciation.LookupComplete += (o, e) => textBox2.Text = e.Pronounciation ?? "<not found>";
+            speaker = new Speaker();
+            speaker.GenerationComplete += (o, e) => textBox2.Text = e;
         }
 
-        PronounciationManager pronounciation;
+        Speaker speaker;
         private void button1_Click(object sender, EventArgs e)
         {
-            pronounciation.Lookup(textBox1.Text);
+            speaker.GenerateIPA(textBox1.Text);
         }
     }
 }

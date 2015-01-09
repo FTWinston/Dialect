@@ -36,7 +36,7 @@ namespace Dialect.Sources
 
                 Succeed(word, node.InnerText.Replace("&nbsp;", " ").Trim(trimChars));
             };
-            client.DownloadStringAsync(new Uri(string.Format(UrlFormat, word.ToLower())));
+            client.DownloadStringAsync(new Uri(string.Format(UrlFormat, word)));
         }
 
         private static readonly char[] trimChars = { ' ', '/', '(', ')' }; // collins has the pronounciation inside brackets, but is it always safe to strip these?

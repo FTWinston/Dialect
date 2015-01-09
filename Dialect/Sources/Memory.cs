@@ -17,7 +17,7 @@ namespace Dialect.Sources
         public override void Lookup(string word)
         {
             string ipa;
-            if (KnownWords.TryGetValue(word.ToLower(), out ipa))
+            if (KnownWords.TryGetValue(word, out ipa))
                 Succeed(word, ipa);
             else
                 Fail(word);
