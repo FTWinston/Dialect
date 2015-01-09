@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Dialect.Sources
 {
-    public class Memory : PronounciationStorageSource
+    public class Memory : PronunciationStorageSource
     {
         public override string Name { get { return "Memory"; } }
 
@@ -16,18 +16,16 @@ namespace Dialect.Sources
 
         public override void Lookup(string word)
         {
-            string ipa;
-            if (KnownWords.TryGetValue(word, out ipa))
-                Succeed(word, ipa);
+            string pronunciation;
+            if (KnownWords.TryGetValue(word, out pronunciation))
+                Succeed(word, pronunciation);
             else
                 Fail(word);
-
-            // any time ANY source returns a word, want this to remember it. That requires linking this in with the Manager, doesn't it?
         }
 
-        public override void StoreWord(string spelling, string pronounciation)
+        public override void StoreWord(string spelling, string pronunciation)
         {
-            KnownWords[spelling] = pronounciation;
+            KnownWords[spelling] = pronunciation;
         }
     }
 }

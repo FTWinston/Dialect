@@ -7,21 +7,21 @@ using System.Threading.Tasks;
 
 namespace Dialect
 {
-    public class PronounciationManager
+    public class PronunciationManager
     {
-        private PronounciationStorageSource knownWordSource;
-        public PronounciationStorageSource KnownWordSource { get { return knownWordSource; } set { knownWordSource = value; value.LookupComplete += SourceLookupComplete; } }
-        private List<PronounciationSource> Sources { get; set; }
+        private PronunciationStorageSource knownWordSource;
+        public PronunciationStorageSource KnownWordSource { get { return knownWordSource; } set { knownWordSource = value; value.LookupComplete += SourceLookupComplete; } }
+        private List<PronunciationSource> Sources { get; set; }
 
         private SortedList<string, int> LookupsInProgress { get; set; }
 
-        public PronounciationManager()
+        public PronunciationManager()
         {
-            Sources = new List<PronounciationSource>();
+            Sources = new List<PronunciationSource>();
             LookupsInProgress = new SortedList<string, int>();
         }
 
-        public void AddSource(PronounciationSource source)
+        public void AddSource(PronunciationSource source)
         {
             source.LookupComplete += SourceLookupComplete;
             Sources.Add(source);
@@ -38,16 +38,16 @@ namespace Dialect
             KnownWordSource.Lookup(word);
         }
 
-        private void SourceLookupComplete(object sender, PronounciationSource.LookupEventArgs e)
+        private void SourceLookupComplete(object sender, PronunciationEventArgs e)
         {
             int lookupStage;
             if (!LookupsInProgress.TryGetValue(e.Spelling, out lookupStage))
                 return; // we're not currently looking this word up. This ought not to happen.
 
-            Console.WriteLine("{0}: {1} returned {2}", e.Spelling, (sender as PronounciationSource).Name, e.Pronounciation ?? "<not found>");
+            Console.WriteLine("{0}: {1} returned {2}", e.Spelling, (sender as PronunciationSource).Name, e.Pronunciation ?? "<not found>");
 
             lookupStage++;
-            if (e.Pronounciation == null && lookupStage < Sources.Count)
+            if (e.Pronunciation == null && lookupStage < Sources.Count)
             {
                 // try the next source
                 LookupsInProgress[e.Spelling] = lookupStage;
@@ -55,28 +55,28 @@ namespace Dialect
             }
             else
             {
-                if (e.Pronounciation == null) // have exhausted all of our sources, need to say SOMETHING
+                if (e.Pronunciation == null) // have exhausted all of our sources, need to say SOMETHING
                 {
-                    e.Pronounciation = "ˈsʌm.θɪŋ";
+                    e.Pronunciation = "ˈsʌm.θɪŋ";
 
-                    Console.WriteLine("{0}: No pronounciation found!", e.Spelling);
+                    Console.WriteLine("{0}: No pronunciation found!", e.Spelling);
                 }
 
                 LookupsInProgress.Remove(e.Spelling);
 
                 if (sender != KnownWordSource) // remember this word in the future, so we don't need to use slower sources again.
-                    KnownWordSource.StoreWord(e.Spelling, e.Pronounciation);
+                    KnownWordSource.StoreWord(e.Spelling, e.Pronunciation);
 
                 if (LookupComplete != null)
                     LookupComplete(this, e);
             }
         }
 
-        public event EventHandler<PronounciationSource.LookupEventArgs> LookupComplete;
+        public event EventHandler<PronunciationEventArgs> LookupComplete;
 
-        public static PronounciationManager CreateDefault()
+        public static PronunciationManager CreateDefault()
         {
-            var manager = new PronounciationManager();
+            var manager = new PronunciationManager();
             manager.KnownWordSource = new Memory(); 
 
             manager.AddSource(new Cambridge());

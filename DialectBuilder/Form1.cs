@@ -19,7 +19,8 @@ namespace DialectBuilder
             InitializeComponent();
 
             speaker = new Speaker();
-            speaker.GenerationComplete += (o, e) => textBox2.Text = e;
+            speaker.SayAutomatically();
+            speaker.GenerationComplete += (o, e) => textBox2.Text = e.Pronunciation;
         }
 
         Speaker speaker;

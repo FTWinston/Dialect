@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Speech.Synthesis;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -9,13 +10,34 @@ namespace Dialect
     public class Speaker
     {
         public Dialect Dialect { get; set; }
-        public PronounciationManager Pronounciation { get; private set; }
+        public PronunciationManager Pronunciation { get; private set; }
+        SpeechSynthesizer Voice { get; set; }
 
         public Speaker()
         {
             Dialect = new Dialect();
-            Pronounciation = PronounciationManager.CreateDefault();
-            Pronounciation.LookupComplete += WordLookupComplete;
+            Pronunciation = PronunciationManager.CreateDefault();
+            Pronunciation.LookupComplete += WordLookupComplete;
+            
+            Voice = new SpeechSynthesizer();
+            Voice.SetOutputToDefaultAudioDevice();
+        }
+
+        public void SayAutomatically()
+        {
+            if (GenerationComplete != null)
+                return;
+
+            GenerationComplete += (o, e) =>
+            {
+                PromptBuilder pb = new PromptBuilder();
+                pb.StartParagraph();
+                pb.StartSentence();
+                pb.AppendTextWithPronunciation(e.Spelling, e.Pronunciation); // this doesn't like spaces. Looks like this needs called word-for-word?
+                pb.EndSentence();
+                pb.EndParagraph();
+                Voice.SpeakAsync(pb);
+            };
         }
 
         private Queue<string> GenerationQueue = new Queue<string>();
@@ -28,39 +50,40 @@ namespace Dialect
                 StartGeneration();
         }
 
-        public event EventHandler<string> GenerationComplete;
+        public event EventHandler<PronunciationEventArgs> GenerationComplete;
 
         private void StartGeneration()
         {
-            var text = GenerationQueue.Peek();
-            var words = SeparateWords(text);
+            currentJobText = GenerationQueue.Peek();
+            var words = SeparateWords(currentJobText);
             currentJobWordOrder.Clear();
-            currentJobWordsAwaitingPronounciation.Clear();
-            currentJobPronounciations.Clear();
+            currentJobWordsAwaitingPronunciation.Clear();
+            currentJobPronunciations.Clear();
 
             foreach (var word in words)
                 if (word != null)
                 {
                     currentJobWordOrder.Add(word);
 
-                    if (!currentJobWordsAwaitingPronounciation.Contains(word))
-                        currentJobWordsAwaitingPronounciation.Add(word);
+                    if (!currentJobWordsAwaitingPronunciation.Contains(word))
+                        currentJobWordsAwaitingPronunciation.Add(word);
                 }
 
             if (currentJobWordOrder.Count == 0)
             {
                 if (GenerationComplete != null)
-                    GenerationComplete(this, string.Empty);
+                    GenerationComplete(this, new PronunciationEventArgs(currentJobText, string.Empty));
                 return;
             }
 
-            foreach (var word in currentJobWordsAwaitingPronounciation)
-                Pronounciation.Lookup(word);
+            foreach (var word in currentJobWordsAwaitingPronunciation)
+                Pronunciation.Lookup(word);
         }
 
+        string currentJobText;
         List<string> currentJobWordOrder = new List<string>();
-        SortedSet<string> currentJobWordsAwaitingPronounciation = new SortedSet<string>();
-        SortedList<string, string> currentJobPronounciations = new SortedList<string, string>();
+        SortedSet<string> currentJobWordsAwaitingPronunciation = new SortedSet<string>();
+        SortedList<string, string> currentJobPronunciations = new SortedList<string, string>();
 
         static readonly char[] whitespace = { ' ' };
         protected string[] SeparateWords(string text)
@@ -93,37 +116,43 @@ namespace Dialect
             return words;
         }
 
-        private void WordLookupComplete(object sender, PronounciationSource.LookupEventArgs e)
+        private void WordLookupComplete(object sender, PronunciationEventArgs e)
         {
-            currentJobPronounciations[e.Spelling] = e.Pronounciation;
-            currentJobWordsAwaitingPronounciation.Remove(e.Spelling);
+            currentJobPronunciations[e.Spelling] = e.Pronunciation;
+            currentJobWordsAwaitingPronunciation.Remove(e.Spelling);
 
-            if (currentJobWordsAwaitingPronounciation.Count == 0)
+            if (currentJobWordsAwaitingPronunciation.Count == 0)
                 ContinueGeneration();
         }
 
         private void ContinueGeneration()
         {
-            string text = CombineWordPronounciations();
+            string pronunciation = CombineWordPronunciations();
 
-            text = Dialect.PerformSubstitution(text);
+            pronunciation = Dialect.PerformSubstitution(pronunciation);
 
             if (GenerationComplete != null)
-                GenerationComplete(this, text);
+                GenerationComplete(this, new PronunciationEventArgs(currentJobText, pronunciation));
 
             GenerationQueue.Dequeue();
             if (GenerationQueue.Count > 0)
                 StartGeneration();
+            else
+            {
+                currentJobText = null;
+                currentJobWordOrder.Clear();
+                currentJobPronunciations.Clear();
+            }
         }
 
-        private string CombineWordPronounciations()
+        private string CombineWordPronunciations()
         {
             var sb = new StringBuilder();
 
             for (int i = 0; i < currentJobWordOrder.Count; i++)
             {
                 sb.Append(" ");
-                sb.Append(currentJobPronounciations[currentJobWordOrder[i]]);
+                sb.Append(currentJobPronunciations[currentJobWordOrder[i]]);
             }
             return sb.Remove(0, 1).ToString();
         }

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Dialect.Sources
 {
-    public abstract class WebScraper : PronounciationSource
+    public abstract class WebScraper : PronunciationSource
     {
         protected abstract string UrlFormat { get; }
         protected abstract string ElementXPath { get; }
@@ -39,6 +39,6 @@ namespace Dialect.Sources
             client.DownloadStringAsync(new Uri(string.Format(UrlFormat, word)));
         }
 
-        private static readonly char[] trimChars = { ' ', '/', '(', ')' }; // collins has the pronounciation inside brackets, but is it always safe to strip these?
+        private static readonly char[] trimChars = { ' ', '/', '(', ')' }; // collins has the pronunciation inside brackets, but is it always safe to strip these?
     }
 }
