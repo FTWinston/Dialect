@@ -8,11 +8,11 @@ using System.Threading.Tasks;
 
 namespace Dialect.Sources
 {
-    public class Memory : PronounciationSource
+    public class Memory : PronounciationStorageSource
     {
         public override string Name { get { return "Memory"; } }
 
-        SortedList<string, string> KnownWords = new SortedList<string, string>();
+        private SortedList<string, string> KnownWords = new SortedList<string, string>();
 
         public override void Lookup(string word)
         {
@@ -23,6 +23,11 @@ namespace Dialect.Sources
                 Fail(word);
 
             // any time ANY source returns a word, want this to remember it. That requires linking this in with the Manager, doesn't it?
+        }
+
+        public override void StoreWord(string spelling, string pronounciation)
+        {
+            KnownWords[spelling] = pronounciation;
         }
     }
 }

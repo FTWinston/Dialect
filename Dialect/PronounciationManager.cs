@@ -9,48 +9,66 @@ namespace Dialect
 {
     public class PronounciationManager
     {
-        private List<Tuple<PronounciationSource, SourceUsage>> Sources { get; set; }
+        private PronounciationStorageSource knownWordSource;
+        public PronounciationStorageSource KnownWordSource { get { return knownWordSource; } set { knownWordSource = value; value.LookupComplete += SourceLookupComplete; } }
+        private List<PronounciationSource> Sources { get; set; }
 
-        public enum SourceUsage
-        {
-            Simultaneous, // this source will be used at the same time as the previous source. The first one to respond with valid output will be used.
-            Fallback, // this source will be used only if the previous source doesn't return a pronounciation
-        }
+        private SortedList<string, int> LookupsInProgress { get; set; }
 
         public PronounciationManager()
         {
-            Sources = new List<Tuple<PronounciationSource, SourceUsage>>();
+            Sources = new List<PronounciationSource>();
+            LookupsInProgress = new SortedList<string, int>();
         }
 
-        public void AddSource(PronounciationSource source, SourceUsage usage)
+        public void AddSource(PronounciationSource source)
         {
             source.LookupComplete += SourceLookupComplete;
-            Sources.Add(new Tuple<PronounciationSource, SourceUsage>(source, usage));
+            Sources.Add(source);
         }
 
         public void Lookup(string word)
         {
             word = word.ToLower();
 
-            // this should take account of SourceUsage
-            foreach (var tuple in Sources)
-                tuple.Item1.Lookup(word);
+            if (LookupsInProgress.ContainsKey(word))
+                return; // the "lookup complete" event should cover the existing lookup and this new one, so do nothing here.
+
+            LookupsInProgress.Add(word, -1);
+            KnownWordSource.Lookup(word);
         }
 
         private void SourceLookupComplete(object sender, PronounciationSource.LookupEventArgs e)
         {
-            if (LookupComplete != null)
-                LookupComplete(this, e);
+            int lookupStage;
+            if (!LookupsInProgress.TryGetValue(e.Spelling, out lookupStage))
+                return; // we're not currently looking this word up. This ought not to happen.
 
             Console.WriteLine("{0}: {1} returned {2}", e.Spelling, (sender as PronounciationSource).Name, e.Pronounciation ?? "<not found>");
 
-            if (e.Pronounciation == null)
+            lookupStage++;
+            if (e.Pronounciation == null && lookupStage < Sources.Count)
             {
-                // move to the next stage of source lookupgs
+                // try the next source
+                LookupsInProgress[e.Spelling] = lookupStage;
+                Sources[lookupStage].Lookup(e.Spelling);
             }
             else
             {
-                // terminate all source lookups that are currently running
+                if (e.Pronounciation == null) // have exhausted all of our sources, need to say SOMETHING
+                {
+                    e.Pronounciation = "something";
+
+                    Console.WriteLine("{0}: No pronounciation found!", e.Spelling);
+                }
+
+                LookupsInProgress.Remove(e.Spelling);
+
+                if (sender != KnownWordSource) // remember this word in the future, so we don't need to use slower sources again.
+                    KnownWordSource.StoreWord(e.Spelling, e.Pronounciation);
+
+                if (LookupComplete != null)
+                    LookupComplete(this, e);
             }
         }
 
@@ -59,10 +77,11 @@ namespace Dialect
         public static PronounciationManager CreateDefault()
         {
             var manager = new PronounciationManager();
-            manager.AddSource(new Memory(), SourceUsage.Simultaneous);
-            manager.AddSource(new Cambridge(), SourceUsage.Fallback);
-            manager.AddSource(new Collins(), SourceUsage.Simultaneous);
-            manager.AddSource(new Oxford(), SourceUsage.Simultaneous);
+            manager.KnownWordSource = new Memory(); 
+
+            manager.AddSource(new Cambridge());
+            manager.AddSource(new Collins());
+            manager.AddSource(new Oxford());
             return manager;
         }
     }

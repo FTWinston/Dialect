@@ -36,4 +36,9 @@ namespace Dialect
             public string Spelling, Pronounciation;
         }
     }
+
+    public abstract class PronounciationStorageSource : PronounciationSource
+    {
+        public abstract void StoreWord(string spelling, string pronounciation);
+    }
 }
