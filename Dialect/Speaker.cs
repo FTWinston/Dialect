@@ -163,7 +163,7 @@ namespace Dialect
                 StartGeneration();
         }
 
-        public event EventHandler<PronunciationEventArgs> GenerationComplete;
+        public event EventHandler<Word> GenerationComplete;
 
         private void StartGeneration()
         {
@@ -190,7 +190,7 @@ namespace Dialect
             if (currentJobWordOrder.Count == 0)
             {
                 if (GenerationComplete != null)
-                    GenerationComplete(this, new PronunciationEventArgs(currentJobText, string.Empty));
+                    GenerationComplete(this, new Word(currentJobText, string.Empty));
                 return;
             }
 
@@ -234,7 +234,7 @@ namespace Dialect
             return words;
         }
 
-        private void WordLookupComplete(object sender, PronunciationEventArgs e)
+        private void WordLookupComplete(object sender, Word e)
         {
             currentJobPronunciations[e.Spelling] = e.Pronunciation;
             currentJobWordsAwaitingPronunciation.Remove(e.Spelling);
@@ -250,7 +250,7 @@ namespace Dialect
             pronunciation = Dialect.PerformSubstitution(pronunciation);
 
             if (GenerationComplete != null)
-                GenerationComplete(this, new PronunciationEventArgs(currentJobText, pronunciation));
+                GenerationComplete(this, new Word(currentJobText, pronunciation));
 
             GenerationQueue.Dequeue();
             if (GenerationQueue.Count > 0)

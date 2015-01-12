@@ -14,16 +14,16 @@ namespace Dialect
         protected void Succeed(string spelling, string pronunciation)
         {
             if (LookupComplete != null)
-                LookupComplete(this, new PronunciationEventArgs(spelling, pronunciation));
+                LookupComplete(this, new Word(spelling, pronunciation));
         }
 
         protected void Fail(string spelling)
         {
             if (LookupComplete != null)
-                LookupComplete(this, new PronunciationEventArgs(spelling, null));
+                LookupComplete(this, new Word(spelling, null));
         }
 
-        public event EventHandler<PronunciationEventArgs> LookupComplete;
+        public event EventHandler<Word> LookupComplete;
     }
 
     public abstract class PronunciationStorageSource : PronunciationSource

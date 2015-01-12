@@ -38,7 +38,7 @@ namespace Dialect
             KnownWordSource.Lookup(word);
         }
 
-        private void SourceLookupComplete(object sender, PronunciationEventArgs e)
+        private void SourceLookupComplete(object sender, Word e)
         {
             int lookupStage;
             if (!LookupsInProgress.TryGetValue(e.Spelling, out lookupStage))
@@ -72,7 +72,7 @@ namespace Dialect
             }
         }
 
-        public event EventHandler<PronunciationEventArgs> LookupComplete;
+        public event EventHandler<Word> LookupComplete;
 
         public static PronunciationManager CreateDefault()
         {

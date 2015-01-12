@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace Dialect
 {
-    public struct PronunciationEventArgs
+    public struct Word
     {
-        internal PronunciationEventArgs(string spelling, string pronunciation)
+        internal Word(string spelling, string pronunciation)
         {
             Spelling = spelling;
             Pronunciation = pronunciation;
