@@ -20,7 +20,7 @@ namespace DialectBuilder
 
             speaker = new Speaker();
             speaker.SayAutomatically();
-            speaker.GenerationComplete += (o, e) => textBox2.Text = e.Pronunciation;
+            speaker.GenerationComplete += (o, e) => textBox2.Text = Word.WritePronounciation(e.Words);
         }
 
         Speaker speaker;

@@ -23,6 +23,7 @@ namespace Dialect
             Voice.SetOutputToDefaultAudioDevice();
         }
 
+        #region tts
         public void SayAutomatically()
         {
             if (GenerationComplete != null)
@@ -33,13 +34,32 @@ namespace Dialect
                 PromptBuilder pb = new PromptBuilder();
                 pb.StartParagraph();
                 pb.StartSentence();
-                pb.AppendTextWithPronunciation(e.Spelling, SubstituteCharacters(e.Pronunciation)); // this doesn't like spaces. Looks like this needs called word-for-word?
+
+                foreach (var word in e.Words)
+                    if (word.IsPunctuation)
+                        switch (GetPunctuationType(word.Pronunciation[0]))
+                        {
+                            case PunctuationWordType.EndOfParagraph:
+                                pb.EndParagraph();
+                                pb.StartParagraph();
+                                break;
+                            case PunctuationWordType.EndOfSentence:
+                                pb.EndSentence();
+                                pb.StartSentence();
+                                break;
+                            case PunctuationWordType.Pause:
+                                pb.AppendBreak(PromptBreak.Small);
+                                break;
+                        }
+                    else
+                        pb.AppendTextWithPronunciation(word.Spelling, /*SubstituteCharacters(*/word.Pronunciation/*)*/);
+
                 pb.EndSentence();
                 pb.EndParagraph();
                 Voice.SpeakAsync(pb);
             };
         }
-
+        /*
         private string SubstituteCharacters(string ipa)
         {
             StringBuilder sb = new StringBuilder();
@@ -152,6 +172,9 @@ namespace Dialect
                 }
             return sb.ToString();
         }
+        */
+        const string punctuationEndOfSentence = ".", punctuationEndOfParagraph = "\n", punctuationPause = ".";
+        #endregion tts
 
         private Queue<string> GenerationQueue = new Queue<string>();
 
@@ -163,7 +186,7 @@ namespace Dialect
                 StartGeneration();
         }
 
-        public event EventHandler<Word> GenerationComplete;
+        public event EventHandler<SpeechEventArgs> GenerationComplete;
 
         private void StartGeneration()
         {
@@ -176,21 +199,34 @@ namespace Dialect
             var wordsToLookup = new SortedSet<string>();
 
             foreach (var word in words)
-                if (word != null)
+            {
+                currentJobWordOrder.Add(word);
+                if (!currentJobWordsAwaitingPronunciation.Contains(word))
                 {
-                    currentJobWordOrder.Add(word);
-
-                    if (!currentJobWordsAwaitingPronunciation.Contains(word))
+                    if (word.Length == 1)
                     {
-                        currentJobWordsAwaitingPronunciation.Add(word);
-                        wordsToLookup.Add(word);
+                        switch (GetPunctuationType(word[0]))
+                        {
+                            case PunctuationWordType.EndOfSentence:
+                                currentJobPronunciations.Add(word, new Word(word, punctuationEndOfSentence, true)); continue;
+                            case PunctuationWordType.EndOfParagraph:
+                                currentJobPronunciations.Add(word, new Word(word, punctuationEndOfParagraph, true)); continue;
+                            case PunctuationWordType.Pause:
+                                currentJobPronunciations.Add(word, new Word(word, punctuationPause, true)); continue;
+                            default:
+                                break;
+                        }
                     }
+
+                    currentJobWordsAwaitingPronunciation.Add(word);
+                    wordsToLookup.Add(word);
                 }
+            }
 
             if (currentJobWordOrder.Count == 0)
             {
                 if (GenerationComplete != null)
-                    GenerationComplete(this, new Word(currentJobText, string.Empty));
+                    GenerationComplete(this, new SpeechEventArgs());
                 return;
             }
 
@@ -201,43 +237,80 @@ namespace Dialect
         string currentJobText;
         List<string> currentJobWordOrder = new List<string>();
         SortedSet<string> currentJobWordsAwaitingPronunciation = new SortedSet<string>();
-        SortedList<string, string> currentJobPronunciations = new SortedList<string, string>();
+        SortedList<string, Word> currentJobPronunciations = new SortedList<string, Word>();
+
+        private enum PunctuationWordType
+        {
+            None,
+            EndOfSentence,
+            EndOfParagraph,
+            Pause,
+        }
+
+        private PunctuationWordType GetPunctuationType(char c)
+        {
+            switch (c)
+            {
+                case '.':
+                case '!':
+                case '?':
+                    return PunctuationWordType.EndOfSentence;
+                case '\n':
+                    return PunctuationWordType.EndOfParagraph;
+                case ',':
+                case ':':
+                case ';':
+                    return PunctuationWordType.Pause;
+                default:
+                    return PunctuationWordType.None;
+            }
+        }
 
         static readonly char[] whitespace = { ' ' };
-        protected string[] SeparateWords(string text)
+
+        protected IEnumerable<string> SeparateWords(string text)
         {
-            var words = text.Split(whitespace, StringSplitOptions.RemoveEmptyEntries);
+            var splitText = text.Split(whitespace, StringSplitOptions.RemoveEmptyEntries);
+            var words = new List<string>();
 
-            for (int i = 0; i < words.Length; i++)
+            for (int i = 0; i < splitText.Length; i++)
             {
-                var word = words[i];
+                var word = splitText[i];
+                int wordPos = words.Count;
 
-                int startPos; // skip non-alphanumeric characters at start and end
-                for (startPos = 0; startPos < word.Length; startPos++)
-                    if (char.IsLetterOrDigit(word[startPos]))
+                // any non-alphanumeric chars before a word are ignored
+                // same with those after, but sentence breaks, paragraph breaks & "pause" punctuation characters go in as their own words.
+
+                int endPos; // skip non-alphanumeric characters at end and start
+                for (endPos = word.Length - 1; endPos >= 0; endPos--)
+                {
+                    char c = word[endPos];
+                    if (char.IsLetterOrDigit(c))
                         break;
+                    else if (GetPunctuationType(c) != PunctuationWordType.None)
+                        words.Add(c.ToString());
+                }
 
-                if (startPos == word.Length)
+                if (endPos == -1)
                 {// no alphanumeric characters in this "word" ... its not a word
-                    words[i] = null;
                     continue;
                 }
 
-                int endPos;
-                for (endPos = word.Length - 1; endPos >= startPos; endPos--)
-                    if (char.IsLetterOrDigit(word[endPos]))
+                int startPos;
+                for (startPos = 0; startPos < word.Length - 1; startPos++)
+                    if (char.IsLetterOrDigit(word[startPos]))
                         break;
 
-                words[i] = word.Substring(startPos, endPos - startPos + 1).ToLower();
+                words.Insert(wordPos, word.Substring(startPos, endPos - startPos + 1).ToLower());
             }
 
             return words;
         }
 
-        private void WordLookupComplete(object sender, Word e)
+        private void WordLookupComplete(object sender, Word w)
         {
-            currentJobPronunciations[e.Spelling] = e.Pronunciation;
-            currentJobWordsAwaitingPronunciation.Remove(e.Spelling);
+            currentJobPronunciations[w.Spelling] = w;
+            currentJobWordsAwaitingPronunciation.Remove(w.Spelling);
 
             if (currentJobWordsAwaitingPronunciation.Count == 0)
                 ContinueGeneration();
@@ -245,12 +318,15 @@ namespace Dialect
 
         private void ContinueGeneration()
         {
-            string pronunciation = CombineWordPronunciations();
-
-            pronunciation = Dialect.PerformSubstitution(pronunciation);
+            var pronunciation = CombineWordPronunciations();
+            Dialect.PerformSubstitution(pronunciation);
 
             if (GenerationComplete != null)
-                GenerationComplete(this, new Word(currentJobText, pronunciation));
+            {
+                var args = new SpeechEventArgs();
+                args.Words = pronunciation;
+                GenerationComplete(this, args);
+            }
 
             GenerationQueue.Dequeue();
             if (GenerationQueue.Count > 0)
@@ -263,16 +339,12 @@ namespace Dialect
             }
         }
 
-        private string CombineWordPronunciations()
+        private List<Word> CombineWordPronunciations()
         {
-            var sb = new StringBuilder();
-
+            var words = new List<Word>();
             for (int i = 0; i < currentJobWordOrder.Count; i++)
-            {
-                sb.Append(" ");
-                sb.Append(currentJobPronunciations[currentJobWordOrder[i]]);
-            }
-            return sb.Remove(0, 1).ToString();
+                words.Add(currentJobPronunciations[currentJobWordOrder[i]]);
+            return words;
         }
     }
 }

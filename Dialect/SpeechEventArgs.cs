@@ -6,11 +6,8 @@ using System.Threading.Tasks;
 
 namespace Dialect
 {
-    public class Dialect
+    public class SpeechEventArgs
     {
-        public void PerformSubstitution(List<Word> words)
-        {
-            
-        }
+        public List<Word> Words;
     }
 }

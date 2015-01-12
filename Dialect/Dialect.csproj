@@ -45,6 +45,7 @@
   <ItemGroup>
     <Compile Include="Dialect.cs" />
     <Compile Include="PronunciationManager.cs" />
+    <Compile Include="SpeechEventArgs.cs" />
     <Compile Include="Word.cs" />
     <Compile Include="Sources\Collins.cs" />
     <Compile Include="Sources\Memory.cs" />
